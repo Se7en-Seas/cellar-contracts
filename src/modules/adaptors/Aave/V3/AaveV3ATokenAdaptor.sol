@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.21;
 
-import { BaseAdaptor, ERC20, SafeTransferLib, Cellar, PriceRouter, Math } from "src/modules/adaptors/BaseAdaptor.sol";
-import { IPoolV3 } from "src/interfaces/external/IPoolV3.sol";
-import { IAaveToken } from "src/interfaces/external/IAaveToken.sol";
-import { IAaveOracle } from "src/interfaces/external/IAaveOracle.sol";
+import {BaseAdaptor, ERC20, SafeTransferLib, Cellar, PriceRouter, Math} from "src/modules/adaptors/BaseAdaptor.sol";
+import {IPoolV3} from "src/interfaces/external/IPoolV3.sol";
+import {IAaveToken} from "src/interfaces/external/IAaveToken.sol";
+import {IAaveOracle} from "src/interfaces/external/IAaveOracle.sol";
 
 /**
  * @title Aave aToken Adaptor
@@ -36,7 +36,7 @@ contract AaveV3ATokenAdaptor is BaseAdaptor {
     //====================================================================
 
     /**
-     @notice Attempted withdraw would lower Cellar health factor too low.
+     * @notice Attempted withdraw would lower Cellar health factor too low.
      */
     error AaveV3ATokenAdaptor__HealthFactorTooLow();
 
@@ -78,7 +78,7 @@ contract AaveV3ATokenAdaptor is BaseAdaptor {
      * of the adaptor is more difficult.
      */
     function identifier() public pure override returns (bytes32) {
-        return keccak256(abi.encode("Aave V3 aToken Adaptor V 1.2"));
+        return keccak256(abi.encode("Lido Aave V3 aToken Adaptor V 1.2"));
     }
 
     //============================================ Implement Base Functions ===========================================
@@ -100,7 +100,7 @@ contract AaveV3ATokenAdaptor is BaseAdaptor {
     }
 
     /**
-     @notice Cellars must withdraw from Aave, check if a minimum health factor is specified
+     * @notice Cellars must withdraw from Aave, check if a minimum health factor is specified
      *       then transfer assets to receiver.
      * @dev Important to verify that external receivers are allowed if receiver is not Cellar address.
      * @param assets the amount of assets to withdraw from Aave
@@ -108,12 +108,10 @@ contract AaveV3ATokenAdaptor is BaseAdaptor {
      * @param adaptorData adaptor data containining the abi encoded aToken
      * @param configData abi encoded minimum health factor, if zero user withdraws are not allowed.
      */
-    function withdraw(
-        uint256 assets,
-        address receiver,
-        bytes memory adaptorData,
-        bytes memory configData
-    ) public override {
+    function withdraw(uint256 assets, address receiver, bytes memory adaptorData, bytes memory configData)
+        public
+        override
+    {
         // Run external receiver check.
         _externalReceiverCheck(receiver);
 
@@ -121,7 +119,7 @@ contract AaveV3ATokenAdaptor is BaseAdaptor {
         IAaveToken token = IAaveToken(abi.decode(adaptorData, (address)));
         pool.withdraw(token.UNDERLYING_ASSET_ADDRESS(), assets, address(this));
 
-        (, uint256 totalDebtBase, , , , uint256 healthFactor) = pool.getUserAccountData(address(this));
+        (, uint256 totalDebtBase,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
         if (totalDebtBase > 0) {
             // If cellar has entered an EMode, and has debt, user withdraws are not allowed.
             if (pool.getUserEMode(msg.sender) != 0) revert BaseAdaptor__UserWithdrawsNotAllowed();
@@ -153,10 +151,12 @@ contract AaveV3ATokenAdaptor is BaseAdaptor {
      *      maintaining 18 decimals during the calculation, but this is desired since
      *      doing so lowers the withdrawable from amount which in turn raises the health factor.
      */
-    function withdrawableFrom(
-        bytes memory adaptorData,
-        bytes memory configData
-    ) public view override returns (uint256) {
+    function withdrawableFrom(bytes memory adaptorData, bytes memory configData)
+        public
+        view
+        override
+        returns (uint256)
+    {
         IAaveToken token = IAaveToken(abi.decode(adaptorData, (address)));
 
         (
@@ -191,12 +191,13 @@ contract AaveV3ATokenAdaptor is BaseAdaptor {
         minHealthFactor += cushion;
 
         // If current health factor is less than the minHealthFactor + 2X cushion, return 0.
-        if (healthFactor < (minHealthFactor + cushion)) return 0;
+        if (healthFactor < (minHealthFactor + cushion)) {
+            return 0;
+        }
         // Calculate max amount withdrawable while preserving minimum health factor.
         else {
             maxBorrowableWithMin =
-                totalCollateralBase -
-                minHealthFactor.mulDivDown(totalDebtBase, (currentLiquidationThreshold * 1e14));
+                totalCollateralBase - minHealthFactor.mulDivDown(totalDebtBase, (currentLiquidationThreshold * 1e14));
         }
         /// @dev We want right side of "-" to have 8 decimals, so we need to dviide by 18 decimals.
         // `currentLiquidationThreshold` has 4 decimals, so multiply by 1e14 to get 18 decimals on denominator.
@@ -235,8 +236,9 @@ contract AaveV3ATokenAdaptor is BaseAdaptor {
 
         // Make sure Aave Oracle uses USD base asset with 8 decimals.
         // BASE_CURRENCY and BASE_CURRENCY_UNIT are both immutable values, so only check this on initial position setup.
-        if (aaveOracle.BASE_CURRENCY() != address(0) || aaveOracle.BASE_CURRENCY_UNIT() != 1e8)
+        if (aaveOracle.BASE_CURRENCY() != address(0) || aaveOracle.BASE_CURRENCY_UNIT() != 1e8) {
             revert AaveV3ATokenAdaptor__OracleUsesDifferentBase();
+        }
     }
 
     /**
@@ -270,7 +272,7 @@ contract AaveV3ATokenAdaptor is BaseAdaptor {
     function withdrawFromAave(ERC20 tokenToWithdraw, uint256 amountToWithdraw) public {
         pool.withdraw(address(tokenToWithdraw), amountToWithdraw, address(this));
         // Check that health factor is above adaptor minimum.
-        (, , , , , uint256 healthFactor) = pool.getUserAccountData(address(this));
+        (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
         if (healthFactor < minimumHealthFactor) revert AaveV3ATokenAdaptor__HealthFactorTooLow();
     }
 
@@ -280,7 +282,7 @@ contract AaveV3ATokenAdaptor is BaseAdaptor {
     function adjustIsolationModeAssetAsCollateral(ERC20 asset, bool useAsCollateral) public {
         pool.setUserUseReserveAsCollateral(address(asset), useAsCollateral);
         // Check that health factor is above adaptor minimum.
-        (, , , , , uint256 healthFactor) = pool.getUserAccountData(address(this));
+        (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
         if (healthFactor < minimumHealthFactor) revert AaveV3ATokenAdaptor__HealthFactorTooLow();
     }
 
@@ -290,7 +292,7 @@ contract AaveV3ATokenAdaptor is BaseAdaptor {
     function changeEMode(uint8 categoryId) public {
         pool.setUserEMode(categoryId);
         // Check that health factor is above adaptor minimum.
-        (, , , , , uint256 healthFactor) = pool.getUserAccountData(address(this));
+        (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
         if (healthFactor < minimumHealthFactor) revert AaveV3ATokenAdaptor__HealthFactorTooLow();
     }
 }

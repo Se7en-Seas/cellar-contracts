@@ -121,6 +121,9 @@ contract MainnetAddresses {
     ERC20 public dV3CrvUsd = ERC20(0x028f7886F3e937f8479efaD64f31B3fE1119857a);
     ERC20 public aV3WeETH = ERC20(0xBdfa7b7893081B35Fb54027489e2Bc7A38275129);
 
+    address public lidoAaveV3Pool = 0x4e033931ad43597d96D6bcc25c280717730B58B1;
+    address public lidoAaveV3Oracle = 0xE3C061981870C0C7b1f3C4F4bB36B95f1F260BE6;
+
     // Balancer V2 Addresses
     ERC20 public BB_A_USD = ERC20(0xfeBb0bbf162E64fb9D0dfe186E517d84C395f016);
     ERC20 public BB_A_USD_V3 = ERC20(0xc443C15033FCB6Cf72cC24f1BDA0Db070DdD9786);

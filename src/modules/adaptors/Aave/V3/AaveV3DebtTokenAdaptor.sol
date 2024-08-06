@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.21;
 
-import { BaseAdaptor, ERC20, SafeTransferLib, Cellar, Registry } from "src/modules/adaptors/BaseAdaptor.sol";
-import { IPoolV3 } from "src/interfaces/external/IPoolV3.sol";
-import { IAaveToken } from "src/interfaces/external/IAaveToken.sol";
+import {BaseAdaptor, ERC20, SafeTransferLib, Cellar, Registry} from "src/modules/adaptors/BaseAdaptor.sol";
+import {IPoolV3} from "src/interfaces/external/IPoolV3.sol";
+import {IAaveToken} from "src/interfaces/external/IAaveToken.sol";
 
 /**
  * @title Aave debtToken Adaptor
@@ -22,7 +22,7 @@ contract AaveV3DebtTokenAdaptor is BaseAdaptor {
     //====================================================================
 
     /**
-     @notice Attempted borrow would lower Cellar health factor too low.
+     * @notice Attempted borrow would lower Cellar health factor too low.
      */
     error AaveV3DebtTokenAdaptor__HealthFactorTooLow();
 
@@ -58,7 +58,7 @@ contract AaveV3DebtTokenAdaptor is BaseAdaptor {
      * of the adaptor is more difficult.
      */
     function identifier() public pure override returns (bytes32) {
-        return keccak256(abi.encode("Aave V3 debtToken Adaptor V 1.1"));
+        return keccak256(abi.encode("Lido Aave V3 debtToken Adaptor V 1.1"));
     }
 
     //============================================ Implement Base Functions ===========================================
@@ -120,20 +120,17 @@ contract AaveV3DebtTokenAdaptor is BaseAdaptor {
         // Check that debt position is properly set up to be tracked in the Cellar.
         bytes32 positionHash = keccak256(abi.encode(identifier(), true, abi.encode(address(debtTokenToBorrow))));
         uint32 positionId = Cellar(address(this)).registry().getPositionHashToPositionId(positionHash);
-        if (!Cellar(address(this)).isPositionUsed(positionId))
+        if (!Cellar(address(this)).isPositionUsed(positionId)) {
             revert AaveV3DebtTokenAdaptor__DebtPositionsMustBeTracked(address(debtTokenToBorrow));
+        }
 
         // Open up new variable debt position on Aave.
         pool.borrow(
-            IAaveToken(address(debtTokenToBorrow)).UNDERLYING_ASSET_ADDRESS(),
-            amountToBorrow,
-            2,
-            0,
-            address(this)
+            IAaveToken(address(debtTokenToBorrow)).UNDERLYING_ASSET_ADDRESS(), amountToBorrow, 2, 0, address(this)
         ); // 2 is the interest rate mode, either 1 for stable or 2 for variable
 
         // Check that health factor is above adaptor minimum.
-        (, , , , , uint256 healthFactor) = pool.getUserAccountData(address(this));
+        (,,,,, uint256 healthFactor) = pool.getUserAccountData(address(this));
         if (healthFactor < minimumHealthFactor) revert AaveV3DebtTokenAdaptor__HealthFactorTooLow();
     }
 
